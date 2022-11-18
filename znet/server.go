@@ -207,7 +207,7 @@ func (s *Server) CallOnConnStart(conn ziface.IConnection) {
 // CallOnConnStop 调用连接OnConnStop Hook函数
 func (s *Server) CallOnConnStop(conn ziface.IConnection) {
 	if s.OnConnStop != nil {
-		logger.Infof("[Zinx][Server][CallOnConnStart]---> CallOnConnStop....")
+		logger.Infof("[Zinx][Server][CallOnConnStop]---> CallOnConnStop....")
 		s.OnConnStop(conn)
 	}
 }
