@@ -119,6 +119,16 @@ func (c *Connection) StartReader() {
 			// 读取客户端的Msg head
 			headData := make([]byte, c.TCPServer.Packet().GetHeadLen())
 			if _, err := io.ReadFull(c.Conn, headData); err != nil {
+				if err == io.EOF {
+					logger.Infof(
+						"[Zinx][Connection][StartReader]Connection Closed By The Remote Host, ConnID: %d, Remote Addr: %s",
+						c.ConnID,
+						c.RemoteAddr().String(),
+					)
+
+					return
+				}
+
 				logger.Errorf(
 					"[Zinx][Connection][StartReader]Read Msg Head Error, ConnID: %d, Remote Addr: %s, Error: %v",
 					c.ConnID,
