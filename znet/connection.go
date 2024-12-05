@@ -108,7 +108,9 @@ func (c *Connection) StartReader() {
 		c.ConnID,
 		c.RemoteAddr().String(),
 	)
+
 	defer c.Stop()
+	var errorTimes uint8
 
 	// 创建拆包解包的对象
 	for {
@@ -116,17 +118,22 @@ func (c *Connection) StartReader() {
 		case <-c.ctx.Done():
 			return
 		default:
+			// 增加超时处理，暂固定30秒
+			c.Conn.SetDeadline(time.Now().Add(time.Second * 30))
+
 			// 读取客户端的Msg head
 			headData := make([]byte, c.TCPServer.Packet().GetHeadLen())
 			if _, err := io.ReadFull(c.Conn, headData); err != nil {
-				if err == io.EOF {
-					logger.Infof(
-						"[Zinx][Connection][StartReader]Connection Closed By The Remote Host, ConnID: %d, Remote Addr: %s",
-						c.ConnID,
-						c.RemoteAddr().String(),
-					)
-
-					return
+				switch errType := err.(type) {
+				case net.Error:
+					if errType.Timeout() {
+						logger.Infof(
+							"[Zinx][Connection][StartReader]Read Header Timeout, ConnID: %d, Remote Addr: %s",
+							c.ConnID,
+							c.RemoteAddr().String(),
+						)
+						continue
+					}
 				}
 
 				logger.Errorf(
@@ -135,7 +142,13 @@ func (c *Connection) StartReader() {
 					c.RemoteAddr().String(),
 					err,
 				)
-				return
+
+				if errorTimes > 10 {
+					return
+				}
+
+				errorTimes++
+				continue
 			}
 
 			// 拆包，得到msgID 和 datalen 放在msg中
@@ -147,7 +160,13 @@ func (c *Connection) StartReader() {
 					c.RemoteAddr().String(),
 					err,
 				)
-				return
+
+				if errorTimes > 10 {
+					return
+				}
+
+				errorTimes++
+				continue
 			}
 
 			// 根据 dataLen 读取 data，放在msg.Data中
@@ -155,16 +174,35 @@ func (c *Connection) StartReader() {
 			if msg.GetDataLen() > 0 {
 				data = make([]byte, msg.GetDataLen())
 				if _, err := io.ReadFull(c.Conn, data); err != nil {
+					switch errType := err.(type) {
+					case net.Error:
+						if errType.Timeout() {
+							logger.Infof(
+								"[Zinx][Connection][StartReader]Read Data Timeout, ConnID: %d, Remote Addr: %s",
+								c.ConnID,
+								c.RemoteAddr().String(),
+							)
+							continue
+						}
+					}
+
 					logger.Errorf(
 						"[Zinx][Connection][StartReader]Read Msg Data Error, ConnID: %d, Remote Addr: %s, Error: %v",
 						c.ConnID,
 						c.RemoteAddr().String(),
 						err,
 					)
-					return
+
+					if errorTimes > 10 {
+						return
+					}
+
+					errorTimes++
+					continue
 				}
 			}
 
+			errorTimes = 0
 			msg.SetHeaderData(headData)
 			msg.SetData(data)
 			// 得到当前客户端请求的Request数据
