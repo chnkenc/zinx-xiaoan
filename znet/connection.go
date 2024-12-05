@@ -120,9 +120,10 @@ func (c *Connection) StartReader() {
 			headData := make([]byte, c.TCPServer.Packet().GetHeadLen())
 			if _, err := io.ReadFull(c.Conn, headData); err != nil {
 				logger.Errorf(
-					"[Zinx][Connection][StartReader]Read Msg Head Error, ConnID: %d, Remote Addr: %s, Error: %v",
+					"[Zinx][Connection][StartReader]Read Msg Head Error, ConnID: %d, Remote Addr: %s, DataRead: %x, Error: %v",
 					c.ConnID,
 					c.RemoteAddr().String(),
+					headData,
 					err,
 				)
 				return
@@ -132,9 +133,10 @@ func (c *Connection) StartReader() {
 			msg, err := c.TCPServer.Packet().Unpack(headData)
 			if err != nil {
 				logger.Errorf(
-					"[Zinx][Connection][StartReader]Unpack Error, ConnID: %d, Remote Addr: %s, Error: %v",
+					"[Zinx][Connection][StartReader]Unpack Error, ConnID: %d, Remote Addr: %s, HeaderData: %x, Error: %v",
 					c.ConnID,
 					c.RemoteAddr().String(),
+					headData,
 					err,
 				)
 				return
